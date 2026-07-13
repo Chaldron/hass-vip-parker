@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "VIP Parker",
+        "description": "Enter the phone number you use with VIP Parker to receive an SMS code.",
+        "data": {
+          "phone": "Phone number",
+          "country": "Country code"
+        }
+      },
+      "code": {
+        "title": "Enter code",
+        "description": "Enter the SMS code. It can take a couple of minutes to arrive.",
+        "data": {
+          "code": "Code"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate VIP Parker",
+        "description": "Your VIP Parker session has expired. Confirm your phone number to receive a new SMS code.",
+        "data": {
+          "phone": "Phone number",
+          "country": "Country code"
+        }
+      },
+      "reauth_code": {
+        "title": "Enter code",
+        "description": "Enter the SMS code. It can take a couple of minutes to arrive.",
+        "data": {
+          "code": "Code"
+        }
+      }
+    },
+    "error": {
+      "send_failed": "Could not send a code. Check the phone number and country code.",
+      "invalid_code": "That code was not accepted."
+    },
+    "abort": {
+      "already_configured": "This account is already set up.",
+      "reauth_successful": "VIP Parker was re-authenticated successfully.",
+      "wrong_account": "That phone number belongs to a different VIP Parker account. Re-authenticate with the account this entry was set up with."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "request_status": {
+        "name": "Status",
+        "state": {
+          "not_parked": "Not parked",
+          "parked": "Parked",
+          "requested": "Requested",
+          "on_the_way": "On the way",
+          "ready": "Ready"
+        }
+      }
+    }
+  }
+}
