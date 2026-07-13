@@ -1,0 +1,12 @@
+{
+  "domain": "vip_parker",
+  "name": "VIP Parker",
+  "codeowners": ["@chaldron"],
+  "config_flow": true,
+  "documentation": "https://github.com/chaldron/hass-vip-parker",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/chaldron/hass-vip-parker/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

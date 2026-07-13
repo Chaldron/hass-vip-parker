@@ -1,0 +1,7 @@
+# VIP Parker session file — contains your access/refresh tokens. Do not commit.
+.vip_parker_session.json
+
+# API re-extraction output (large; regenerate with ./extract_api.sh)
+vipparker-extract/
+
+__pycache__

@@ -1,0 +1,16 @@
+{
+  "entity": {
+    "sensor": {
+      "request_status": {
+        "default": "mdi:car",
+        "state": {
+          "not_parked": "mdi:car-off",
+          "parked": "mdi:parking",
+          "requested": "mdi:car-clock",
+          "on_the_way": "mdi:car-clock",
+          "ready": "mdi:car-side"
+        }
+      }
+    }
+  }
+}
