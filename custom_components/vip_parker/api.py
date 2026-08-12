@@ -1,6 +1,8 @@
+import asyncio
 import base64
+import json
 
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 
 from .const import APP_KEY, BASE_URL
 
@@ -26,6 +28,28 @@ class VipParkerApi:
         self.refresh_token = refresh_token
         self._on_tokens = on_tokens
         self._app_key = base64.b64encode(APP_KEY.encode()).decode()  # login sends the key base64-encoded
+        self._refresh_lock = asyncio.Lock()
+
+    async def _http(self, method, path, *, body=None, headers=None):
+        """One HTTP round-trip with defensive JSON parsing.
+
+        Returns (status, parsed_json_or_None). A non-JSON body (gateway or
+        rate-limit page) yields data=None rather than raising; transport errors
+        become a retryable VipParkerError instead of an unhandled crash.
+        """
+        try:
+            async with self._session.request(method, BASE_URL + path, json=body, headers=headers or {}) as resp:
+                status = resp.status
+                text = await resp.text()
+        except (ClientError, asyncio.TimeoutError) as err:
+            raise VipParkerError(f"network error calling {path}: {err}") from err
+        data = None
+        if text:
+            try:
+                data = json.loads(text)
+            except ValueError:
+                data = None
+        return status, data
 
     async def _call(self, method, path, *, body=None, auth=True, retry=True):
         headers = {"Accept-Language": "en-US"}
@@ -33,17 +57,53 @@ class VipParkerApi:
             headers["Authorization"] = f"Bearer {self.access_token}"
         else:
             headers["ApiKey"] = self._app_key
-        async with self._session.request(method, BASE_URL + path, json=body, headers=headers) as resp:
-            data = await resp.json(content_type=None)
-            status = resp.status
-        error = (data or {}).get("error")
+        status, data = await self._http(method, path, body=body, headers=headers)
+        error = data.get("error") if isinstance(data, dict) else None
+
         if auth and _is_unauth(status, error):
-            if retry and self.refresh_token and await self.async_refresh():
+            # Access token expired: refresh once, then retry once. A genuinely
+            # dead refresh token surfaces as AuthError (-> reauth); a transient
+            # refresh failure surfaces as VipParkerError (-> retry next cycle).
+            if retry and self.refresh_token:
+                await self._async_refresh()
                 return await self._call(method, path, body=body, auth=auth, retry=False)
             raise AuthError("unauthorized")
+
         if error:
             raise VipParkerError(error.get("message"), error.get("errorCode"))
-        return (data or {}).get("data")
+        if status >= 400:
+            # 5xx, 429, or an unparseable error page: retryable, not a crash.
+            raise VipParkerError(f"unexpected response from {path} (HTTP {status})")
+        return data.get("data") if isinstance(data, dict) else None
+
+    async def _async_refresh(self):
+        """Renew the access token, single-flight.
+
+        Returns True once a valid access token is in place. Raises AuthError if
+        the refresh token itself is rejected (needs reauth) or VipParkerError on
+        a transient failure (retry next cycle). The lock plus the token re-check
+        keep two concurrent 401s from each spending the rotating refresh token --
+        reusing an already-rotated token can make the server revoke the session.
+        """
+        token_before = self.access_token
+        async with self._refresh_lock:
+            if self.access_token != token_before:
+                return True  # another caller already refreshed while we waited
+
+            headers = {"Authorization": f"Bearer {self.refresh_token}"}
+            status, data = await self._http("POST", "Account/RefreshToken", headers=headers)
+            token = data.get("data") if isinstance(data, dict) else None
+            if status < 400 and token and token.get("accessToken"):
+                self.access_token = token["accessToken"]
+                self.refresh_token = token.get("refreshToken", self.refresh_token)
+                if self._on_tokens:
+                    self._on_tokens(self.access_token, self.refresh_token)
+                return True
+
+            error = data.get("error") if isinstance(data, dict) else None
+            if _is_unauth(status, error):
+                raise AuthError("refresh token rejected")
+            raise VipParkerError(f"token refresh failed (HTTP {status})")
 
     async def async_send_code(self, phone, country):
         await self._call(
@@ -64,20 +124,6 @@ class VipParkerApi:
         self.access_token = token["accessToken"]
         self.refresh_token = token["refreshToken"]
         return data
-
-    async def async_refresh(self):
-        headers = {"Authorization": f"Bearer {self.refresh_token}"}
-        async with self._session.post(BASE_URL + "Account/RefreshToken", headers=headers) as resp:
-            data = await resp.json(content_type=None)
-            status = resp.status
-        token = (data or {}).get("data")
-        if status < 400 and token and token.get("accessToken"):
-            self.access_token = token["accessToken"]
-            self.refresh_token = token.get("refreshToken", self.refresh_token)
-            if self._on_tokens:
-                self._on_tokens(self.access_token, self.refresh_token)
-            return True
-        return False
 
     async def async_get_cars(self):
         return await self._call("GET", "VipCar") or []
