@@ -123,7 +123,7 @@ On success read `data`; on failure `error.errorCode` is one of the codes in
 | GET | Account/Information | — | `{ phoneNumber, countryCode, email, isCarRequestBlacklisted, isCreditCardBlacklisted, accountLocations }` |
 | GET | Account/History *(Accept-Language)* | — | `{ validations, parkings, tippings }` |
 | PUT | Account | `{ email }` | — |
-| PUT | VipDevice | `{ cultureName, appVersion, osVersion, pushNotificationToken }` | — |
+| PATCH | VipDevice | `{ cultureName, appVersion, osVersion, pushNotificationToken }` | — (204) — *live-verified 2026-09-13: the server's `Allow` is `DELETE, PATCH`; PUT/POST → 405* |
 
 ### Valet chat — Bearer auth
 | Verb | Path | Request body | Response `data` |
@@ -444,9 +444,11 @@ The app is minified with **R8**, which matters for re-extraction:
   - `@Path` = the param-annotation class whose values match the `{token}` names in paths.
   - `@Header` = the class whose values are header names (`Authorization`, `ApiKey`, `Accept-Language`).
   - The method-level classes carrying the path strings are the verbs; a verb used with a `@Body` param
-    is POST/PUT (PUT for idempotent resource updates like `Account`, `VipDevice`; POST for actions like
+    is POST/PUT/PATCH (PUT for idempotent resource updates like `Account`; POST for actions like
     `…/Add`, `…/Send`, `…/Transaction`), a verb with no body returning a model is GET, and a no-body verb
-    on a `…/{id}` path returning empty is DELETE. Cross-check one obvious endpoint if unsure.
+    on a `…/{id}` path returning empty is DELETE. This inference is not reliable: `VipDevice` was
+    recorded here as PUT and is really PATCH (a 405's `Allow` header is the cheapest way to check). Read
+    the renamed annotation class for each body-carrying verb rather than guessing from the path.
 - **Gson `@SerializedName` is renamed** (v4.4.0: `@c3.c("jsonKey")`). Field names themselves are
   obfuscated, so the `@SerializedName` string is the real JSON key — always read those, not field names.
 - **Base64 gotcha:** the `ApiKey` header is `Base64.encodeToString(rawKey.getBytes(), 2)` (NO_WRAP), not

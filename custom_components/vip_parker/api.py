@@ -125,7 +125,7 @@ class VipParkerApi:
         return data
 
     async def async_register_device(self):
-        await self._call("PUT", "VipDevice", body=dict(DEVICE_PROFILE))
+        await self._call("PATCH", "VipDevice", body=dict(DEVICE_PROFILE))
 
     async def async_get_cars(self):
         return await self._call("GET", "VipCar") or []
