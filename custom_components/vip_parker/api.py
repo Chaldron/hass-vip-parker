@@ -4,7 +4,7 @@ import json
 
 from aiohttp import ClientError, ClientSession
 
-from .const import APP_KEY, BASE_URL
+from .const import APP_KEY, BASE_URL, DEVICE_PROFILE
 
 
 class VipParkerError(Exception):
@@ -116,14 +116,16 @@ class VipParkerApi:
             "POST", "Account/VerifyAuthorizationCode", auth=False,
             body={
                 "phoneNumber": phone, "countryCode": country, "authorizationCode": code,
-                "cultureName": "en-US", "pushNotificationToken": "",
-                "appVersion": "4.4.0", "osVersion": "15", "osType": 2,
+                "osType": 2, **DEVICE_PROFILE,
             },
         )
         token = data["jwtToken"]
         self.access_token = token["accessToken"]
         self.refresh_token = token["refreshToken"]
         return data
+
+    async def async_register_device(self):
+        await self._call("PUT", "VipDevice", body=dict(DEVICE_PROFILE))
 
     async def async_get_cars(self):
         return await self._call("GET", "VipCar") or []

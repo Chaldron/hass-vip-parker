@@ -3,9 +3,16 @@ from datetime import timedelta
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import AuthError, VipParkerError
-from .const import ACTIVE_STATUSES, DOMAIN, POLL_ACTIVE_SECONDS, POLL_IDLE_SECONDS
+from .const import (
+    ACTIVE_STATUSES,
+    DEVICE_REGISTER_SECONDS,
+    DOMAIN,
+    POLL_ACTIVE_SECONDS,
+    POLL_IDLE_SECONDS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,10 +24,18 @@ class VipParkerCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=POLL_IDLE_SECONDS),
         )
         self.api = api
+        self._device_registered_at = None
 
     async def _async_update_data(self):
         try:
             cars = await self.api.async_get_cars()
+            now = dt_util.utcnow()
+            if (
+                self._device_registered_at is None
+                or (now - self._device_registered_at).total_seconds() >= DEVICE_REGISTER_SECONDS
+            ):
+                await self.api.async_register_device()
+                self._device_registered_at = now
         except AuthError as err:
             raise ConfigEntryAuthFailed from err
         except VipParkerError as err:
